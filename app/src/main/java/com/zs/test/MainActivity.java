@@ -20,12 +20,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.zs.test.constant.Constant;
-import com.zs.test.model.CacheData;
-import com.zs.test.model.Consumer;
-import com.zs.test.model.Producer;
-import com.zs.test.model.ReadBuffer;
-import com.zs.test.model.SyncStack;
-import com.zs.test.model.WriteBuffer;
+import com.zs.test.model.WriteBuff;
+import com.zs.test.model.ReadBuff;
+import com.zs.test.model.CachePool;
 import com.zs.test.util.MD5;
 
 import java.io.File;
@@ -33,9 +30,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
+/***
+ * Created by zhoushuang on 2016/7/28.
+ */
 public class MainActivity extends Activity implements View.OnClickListener{
     private final String TAG = "MainActivity";
 
@@ -89,18 +87,11 @@ public class MainActivity extends Activity implements View.OnClickListener{
                     }
 
                     Constant.TARGET_PATH = Constant.TARGET_ROOT_PATH + name + type;
-//                    Constant.TARGET_PATH = Constant.TARGET_ROOT_PATH + name + "_" + excu_num + type;
                     run_log.append("目标文件：\n\t" + Constant.TARGET_PATH + " \n\t");
 
                     try {
                         File file = new File(Constant.RESOURCE_PATH);
                         if (!file.exists()) return;
-//                        long rate = file.length()/BASE_SIZE;
-//                        if (rate > 1) {
-//                            SLEEP_MILLISECOND = SLEEP_MILLISECOND * rate;
-//                        } else {
-//                            SLEEP_MILLISECOND = 5000;
-//                        }
 
                         String md5_value = MD5.getMd5ByFile(file);
 
@@ -117,11 +108,6 @@ public class MainActivity extends Activity implements View.OnClickListener{
                     fail_num += 1;
                     run_log.append("验证失败，MD5值不一致。已失败（" + fail_num + "）次 \n\t");
                     run_log.append("失败原因： " + msg.obj + "\n\t");
-//                    try{
-//                        Thread.sleep(SLEEP_MILLISECOND);
-//                    } catch (InterruptedException e) {
-//                        Log.e(TAG, "ERROR: " + e.getMessage());
-//                    }
                     break;
                 case 401:
                     Toast.makeText(MainActivity.this, "正在测试中，请稍后再试！", Toast.LENGTH_SHORT).show();
@@ -141,19 +127,6 @@ public class MainActivity extends Activity implements View.OnClickListener{
                 resultTV.setText(Html.fromHtml(result));
 
                 if (excu_num < count) {
-//                    String name = "";
-//                    String type = "";
-//                    if (Constant.RESOURCE_PATH.contains(".")){
-//                        name = Constant.RESOURCE_PATH.substring(Constant.RESOURCE_PATH.lastIndexOf("/") + 1, Constant.RESOURCE_PATH.lastIndexOf(".")) + "_copy";
-//                        type = Constant.RESOURCE_PATH.substring(Constant.RESOURCE_PATH.lastIndexOf("."), Constant.RESOURCE_PATH.length());
-//                    }  else {
-//                        name = Constant.RESOURCE_PATH.substring(Constant.RESOURCE_PATH.lastIndexOf("/") + 1, Constant.RESOURCE_PATH.length()) + "_copy";
-//                    }
-//
-//                    String previous_path = Constant.TARGET_ROOT_PATH + name + "_" + (excu_num-1) + type;
-//                    File previousFile = new File(previous_path);
-//                    previousFile.deleteOnExit();
-
                     try{
                         Thread.sleep(SLEEP_MILLISECOND);
                     } catch (InterruptedException e) {
@@ -222,7 +195,7 @@ public class MainActivity extends Activity implements View.OnClickListener{
             case R.id.start:
                 if (!isRunning){
                     if (excu_num > 0) {
-                        run_log.append("------------- 重新执行 ------------- \n\t");
+                        run_log.append("----------------- 重新执行 ----------------- \n\t");
                         runLog.setText(run_log.toString());
                     }
                     excu_num = 0;//当前执行次数
@@ -257,13 +230,6 @@ public class MainActivity extends Activity implements View.OnClickListener{
     }
 
     protected void start(){
-//        ExecutorService service = Executors.newFixedThreadPool(2);
-//        CacheData cacheData = new CacheData();
-//        cacheData.relese();
-//        service.execute(new ReadBuffer(cacheData, handler));
-//        service.execute(new WriteBuffer(cacheData, handler));
-//        service.shutdown();
-
         InputStream input = null;
         long pending = 0;
         try {
@@ -274,10 +240,10 @@ public class MainActivity extends Activity implements View.OnClickListener{
         } catch (IOException e) {
             e.printStackTrace();
         }
-        SyncStack ss = new SyncStack();
+        CachePool ss = new CachePool();
         ss.setPending(pending);
-        Producer p = new Producer(ss, input, handler);
-        Consumer c = new Consumer(ss, handler);
+        ReadBuff p = new ReadBuff(ss, input, handler);
+        WriteBuff c = new WriteBuff(ss, handler);
 
         Thread tp = new Thread(p);
         Thread tc = new Thread(c);

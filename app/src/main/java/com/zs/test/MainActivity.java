@@ -29,7 +29,10 @@ import com.zs.test.model.WriteBuffer;
 import com.zs.test.util.MD5;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -261,9 +264,19 @@ public class MainActivity extends Activity implements View.OnClickListener{
 //        service.execute(new WriteBuffer(cacheData, handler));
 //        service.shutdown();
 
-
+        InputStream input = null;
+        long pending = 0;
+        try {
+            input = new FileInputStream(new File(Constant.RESOURCE_PATH));
+            pending = input.available();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         SyncStack ss = new SyncStack();
-        Producer p = new Producer(ss, handler);
+        ss.setPending(pending);
+        Producer p = new Producer(ss, input, handler);
         Consumer c = new Consumer(ss, handler);
 
         Thread tp = new Thread(p);

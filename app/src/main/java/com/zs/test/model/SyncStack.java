@@ -6,8 +6,9 @@ import java.util.ArrayList;
  * Created by Administrator on 2016/7/28.
  */
 public class SyncStack {
-    final int SyncStackLengthMax = 16;
+    private final int SyncStackLengthMax = 16;
     private ArrayList<SteamBread> stb = new ArrayList<SteamBread>();
+    private long pending = 0;
 
     // 放入框中，相当于入栈
     public synchronized void push(SteamBread sb) {
@@ -39,5 +40,13 @@ public class SyncStack {
 
         this.notify();
         return firstStb;
+    }
+
+    public void setPending(long pending) {
+        this.pending = pending;
+    }
+
+    public long getPending() {
+        return pending;
     }
 }

@@ -8,11 +8,9 @@ import com.zs.test.constant.Constant;
 import com.zs.test.util.MD5;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -33,11 +31,7 @@ public class Consumer implements Runnable {
     @Override
     public void run() {
         OutputStream out = null;
-        InputStream input = null;
         try {
-
-            input = new FileInputStream(new File(Constant.RESOURCE_PATH));
-
             File target = new File(Constant.TARGET_PATH);
             if (target.exists()) {
                 target.delete();
@@ -48,23 +42,25 @@ public class Consumer implements Runnable {
                 }
             }
 
-            boolean success = target.createNewFile();
+            target.createNewFile();
 
             out = new FileOutputStream(target);
 
-            int done = 0;
+            int len = 0;
 
-            while(done < input.available()){
+
+            long pending = ss.getPending();
+
+            while (len < pending) {
                 SteamBread stb = ss.pop();
                 out.write(stb.buff, 0, stb.length);
                 out.flush();
 
-                done += stb.length;
+                len += stb.length;
 
                 // Delete memory
                 stb.buff = null;
             }
-
 
             String md5 = MD5.getMd5ByFile(target);
             if (Constant.MD5_VALUE.equals(md5)) {
@@ -77,18 +73,15 @@ public class Consumer implements Runnable {
                 handler.sendMessage(message);
             }
         } catch (FileNotFoundException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
-        } finally {
+        }finally {
             try {
                 if (out != null) {
                     out.close();
                 }
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }

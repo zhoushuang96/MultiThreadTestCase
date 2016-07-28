@@ -15,36 +15,38 @@ import java.io.InputStream;
  */
 public class Producer implements Runnable {
     private SyncStack ss = null;
+    private InputStream input = null;
     private Handler handler = null;
 
-    public Producer(SyncStack ss, Handler handler) {
+    public Producer(SyncStack ss, InputStream input, Handler handler) {
         this.ss = ss;
+        this.input = input;
         this.handler = handler;
     }
 
     @Override
     public void run() {
-        // 开始生产馒头
-        InputStream input = null;
         try {
             int id = 0;
             int left = 0;
             int once = 0;
 
             SteamBread stb;
-            input = new FileInputStream(new File(Constant.RESOURCE_PATH));
+            ss.setPending(input.available());
 
-            left = input.available();
-            while(left > 0){
-                byte[] buff = new byte[32*1024];
 
-                once = input.read(buff);
-                stb = new SteamBread(id, once, buff);
-                left -= once;
+            byte[] buff = new byte[32*1024];
+            int len = 0;
+            while((len = input.read(buff)) != -1){
+                stb = new SteamBread(id, len, buff);
                 id++;
 
                 ss.push(stb);
+
+                stb = null;
+
                 buff = null;
+                buff = new byte[32*1024];
             }
         } catch (FileNotFoundException e) {
             e.printStackTrace();

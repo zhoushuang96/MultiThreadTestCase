@@ -68,7 +68,12 @@ public class WriteBuff implements Runnable {
                 cache.setBuff(null);
             }
 
-            String md5 = MD5.getMd5ByFile(target);
+            String md5 = "";
+            if (pending > 300*1024*1024){
+                md5 = MD5.getFileMD5(target);
+            } else {
+                md5 = MD5.getMd5ByFile(target);
+            }
             if (Constant.MD5_VALUE.equals(md5)) {
                 handler.sendEmptyMessage(200);
             } else {

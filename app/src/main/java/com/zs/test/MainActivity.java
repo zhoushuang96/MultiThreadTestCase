@@ -89,19 +89,30 @@ public class MainActivity extends Activity implements View.OnClickListener{
                     Constant.TARGET_PATH = Constant.TARGET_ROOT_PATH + name + type;
                     run_log.append("目标文件：\n\t" + Constant.TARGET_PATH + " \n\t");
 
-                    try {
-                        File file = new File(Constant.RESOURCE_PATH);
-                        if (!file.exists()) return;
 
-                        String md5_value = MD5.getMd5ByFile(file);
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                File file = new File(Constant.RESOURCE_PATH);
+                                if (!file.exists()) return;
+                                String md5_value = null;
+                                if (file.length() > (300*1024*1024)) {
+                                    md5_value = MD5.getFileMD5(file);
+                                } else {
+                                    md5_value = MD5.getMd5ByFile(file);
+                                }
 
-                        Message message = handler.obtainMessage();
-                        message.what = 201;
-                        message.obj = md5_value;
-                        handler.sendMessage(message);
-                    } catch (FileNotFoundException e){
-                        e.printStackTrace();
-                    }
+                                Message message = handler.obtainMessage();
+                                message.what = 201;
+                                message.obj = md5_value;
+                                handler.sendMessage(message);
+                            } catch (FileNotFoundException e){
+                                e.printStackTrace();
+                            }
+                        }
+                    }).start();
+
                     break;
                 case 400:
                     flag = true;
@@ -240,10 +251,10 @@ public class MainActivity extends Activity implements View.OnClickListener{
         } catch (IOException e) {
             e.printStackTrace();
         }
-        CachePool ss = new CachePool();
-        ss.setPending(pending);
-        ReadBuff p = new ReadBuff(ss, input, handler);
-        WriteBuff c = new WriteBuff(ss, handler);
+        CachePool cachePool = new CachePool();
+        cachePool.setPending(pending);
+        ReadBuff p = new ReadBuff(cachePool, input, handler);
+        WriteBuff c = new WriteBuff(cachePool, handler);
 
         Thread tp = new Thread(p);
         Thread tc = new Thread(c);

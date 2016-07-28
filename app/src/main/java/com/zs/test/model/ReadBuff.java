@@ -2,6 +2,7 @@ package com.zs.test.model;
 
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -11,6 +12,7 @@ import java.io.InputStream;
  * Created by zhoushaung on 2016/7/28.
  */
 public class ReadBuff implements Runnable {
+    private final String TAG = "ReadBuff";
     private CachePool cachePool = null;
     private InputStream input = null;
     private Handler handler = null;

@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -28,8 +29,10 @@ import com.zs.test.util.MD5;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 /***
  * Created by zhoushuang on 2016/7/28.
@@ -55,6 +58,9 @@ public class MainActivity extends Activity implements View.OnClickListener{
     private long SLEEP_MILLISECOND = 5000;//默认5秒
     private StringBuilder run_log = new StringBuilder();
 
+    private MD5FileValueAsyncTask asyncTask = null;
+    private RunningAsyncTask runningTask = null;
+
     private Handler handler = new Handler(){
         @Override
         public void handleMessage(Message msg) {
@@ -75,6 +81,7 @@ public class MainActivity extends Activity implements View.OnClickListener{
                     run_log.append("源文件MD5值：\n\t" + md5_Value + " \n\t");
                     break;
                 case 202:
+                    Constant.MD5_VALUE = null;
                     run_log.append("------------- 分隔符 ------------- \n\t");
                     run_log.append("源文件：\n\t" + Constant.RESOURCE_PATH + " \n\t");
                     String name = "";
@@ -89,30 +96,12 @@ public class MainActivity extends Activity implements View.OnClickListener{
                     Constant.TARGET_PATH = Constant.TARGET_ROOT_PATH + name + type;
                     run_log.append("目标文件：\n\t" + Constant.TARGET_PATH + " \n\t");
 
+                    resourceMD5.setText("正在计算源文件MD5值，请等待....");
 
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                File file = new File(Constant.RESOURCE_PATH);
-                                if (!file.exists()) return;
-                                String md5_value = null;
-                                if (file.length() > (300*1024*1024)) {
-                                    md5_value = MD5.getFileMD5(file);
-                                } else {
-                                    md5_value = MD5.getMd5ByFile(file);
-                                }
-
-                                Message message = handler.obtainMessage();
-                                message.what = 201;
-                                message.obj = md5_value;
-                                handler.sendMessage(message);
-                            } catch (FileNotFoundException e){
-                                e.printStackTrace();
-                            }
-                        }
-                    }).start();
-
+                    //异步计算文件MD5值
+                    asyncTask = null;
+                    asyncTask = new MD5FileValueAsyncTask();
+                    asyncTask.execute();
                     break;
                 case 400:
                     flag = true;
@@ -122,6 +111,9 @@ public class MainActivity extends Activity implements View.OnClickListener{
                     break;
                 case 401:
                     Toast.makeText(MainActivity.this, "正在测试中，请稍后再试！", Toast.LENGTH_SHORT).show();
+                    break;
+                case 402:
+                    Toast.makeText(MainActivity.this, "正在计算源文件MD5值或者没有选择文件，请确认！", Toast.LENGTH_SHORT).show();
                     break;
                 default:
                     break;
@@ -138,13 +130,9 @@ public class MainActivity extends Activity implements View.OnClickListener{
                 resultTV.setText(Html.fromHtml(result));
 
                 if (excu_num < count) {
-                    try{
-                        Thread.sleep(SLEEP_MILLISECOND);
-                    } catch (InterruptedException e) {
-                        Log.e(TAG, "ERROR: " + e.getMessage());
-                    }
-
-                    start();
+                    runningTask = null;
+                    runningTask = new RunningAsyncTask();
+                    runningTask.execute();
                 } else {
                     isRunning = false;
                     btn.setBackgroundColor(Color.GRAY);
@@ -198,12 +186,17 @@ public class MainActivity extends Activity implements View.OnClickListener{
 
             }
         }).start();
+
     }
 
     @Override
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.start:
+                if (Constant.MD5_VALUE == null || "".equals(Constant.MD5_VALUE)) {
+                    handler.sendEmptyMessage(402);
+                    return;
+                }
                 if (!isRunning){
                     if (excu_num > 0) {
                         run_log.append("----------------- 重新执行 ----------------- \n\t");
@@ -223,7 +216,9 @@ public class MainActivity extends Activity implements View.OnClickListener{
 
                     btn.setBackgroundColor(Color.GREEN);
 
-                    start();
+                    runningTask = null;
+                    runningTask = new RunningAsyncTask();
+                    runningTask.execute();
                 } else {
                     handler.sendEmptyMessage(401);
                 }
@@ -242,25 +237,85 @@ public class MainActivity extends Activity implements View.OnClickListener{
 
     protected void start(){
         InputStream input = null;
+        OutputStream out = null;
         long pending = 0;
         try {
             input = new FileInputStream(new File(Constant.RESOURCE_PATH));
             pending = input.available();
+
+            File target = new File(Constant.TARGET_PATH);
+            if (target.exists()) {
+                target.delete();
+            } else {
+                File parent = target.getParentFile();
+                if (!parent.exists()) {
+                    parent.mkdirs();
+                }
+            }
+
+            target.createNewFile();
+
+            out = new FileOutputStream(target);
+
+
+            CachePool cachePool = new CachePool();
+            cachePool.setPending(pending);
+            ReadBuff p = new ReadBuff(cachePool, input, handler);
+            WriteBuff c = new WriteBuff(cachePool,out, handler);
+
+            Thread tp = new Thread(p);
+            Thread tc = new Thread(c);
+
+            tp.start();
+            tc.start();
+
+            while(cachePool.getPending() > 0){
+                //do nothing
+            }
+
+            if (cachePool.getPending() <= 0) {
+                out.flush();
+            }
+
+            String md5 = "";
+            if (pending > 300*1024*1024){
+                md5 = MD5.getFileMD5(target);
+            } else {
+                md5 = MD5.getMd5ByFile(target);
+            }
+            if (Constant.MD5_VALUE.equals(md5)) {
+                handler.sendEmptyMessage(200);
+            } else {
+                Log.e(TAG, "失败，MD5值不一致 MD5 VALUE: " + md5);
+                Message message = handler.obtainMessage();
+                message.what = 400;
+                message.obj = "writeBuff error: Fail, the MD5 value is not consistent with VALUE MD5";
+                handler.sendMessage(message);
+            }
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
+            Message message = handler.obtainMessage();
+            message.what = 400;
+            message.obj = "writeBuff error: FileNotFoundException: " + e.getMessage();
+            handler.sendMessage(message);
         } catch (IOException e) {
-            e.printStackTrace();
+            Message message = handler.obtainMessage();
+            message.what = 400;
+            message.obj = "writeBuff error: IOException: " + e.getMessage();
+            handler.sendMessage(message);
+        } finally {
+            try {
+                if (input != null) {
+                    input.close();
+                }
+
+                if (out != null) {
+                    out.close();
+                }
+            }catch (IOException e) {
+                //do nothing
+            }
         }
-        CachePool cachePool = new CachePool();
-        cachePool.setPending(pending);
-        ReadBuff p = new ReadBuff(cachePool, input, handler);
-        WriteBuff c = new WriteBuff(cachePool, handler);
 
-        Thread tp = new Thread(p);
-        Thread tc = new Thread(c);
-
-        tp.start();
-        tc.start();
     }
 
     @Override
@@ -281,6 +336,49 @@ public class MainActivity extends Activity implements View.OnClickListener{
 
         if (this.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
         } else if (this.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
+        }
+    }
+
+
+    class MD5FileValueAsyncTask extends AsyncTask<Void, Void, String> {
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+
+        @Override
+        protected String doInBackground(Void... voids) {
+            String md5_value = null;
+            try {
+                File file = new File(Constant.RESOURCE_PATH);
+                if (!file.exists()) return md5_value;
+                if (file.length() > (300 * 1024 * 1024)) {
+                    md5_value = MD5.getFileMD5(file);
+                } else {
+                    md5_value = MD5.getMd5ByFile(file);
+                }
+
+            } catch (FileNotFoundException e) {
+                md5_value = null;
+            }
+            return md5_value;
+        }
+
+        @Override
+        protected void onPostExecute(String md5Value) {
+            super.onPostExecute(md5Value);
+            Message message = handler.obtainMessage();
+            message.what = 201;
+            message.obj = md5Value;
+            handler.sendMessage(message);
+        }
+    }
+
+    class RunningAsyncTask extends AsyncTask<Void, Void, Void> {
+        @Override
+        protected Void doInBackground(Void... voids) {
+            start();
+            return null;
         }
     }
 }

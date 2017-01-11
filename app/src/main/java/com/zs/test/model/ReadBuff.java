@@ -46,17 +46,6 @@ public class ReadBuff implements Runnable {
             message.what = 400;
             message.obj = "readBuff error: IOException: " + e.getMessage();
             handler.sendMessage(message);
-        } finally {
-            if (input != null) {
-                try {
-                    input.close();
-                } catch (IOException e) {
-                    Message message = handler.obtainMessage();
-                    message.what = 400;
-                    message.obj = "readBuff error: InputStream close exception: " + e.getMessage();
-                    handler.sendMessage(message);
-                }
-            }
         }
     }
 }

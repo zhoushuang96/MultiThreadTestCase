@@ -32,25 +32,8 @@ public class WriteBuff implements Runnable {
 
     @Override
     public void run() {
-//        OutputStream out = null;
         try {
-//            File target = new File(Constant.TARGET_PATH);
-//            if (target.exists()) {
-//                target.delete();
-//            } else {
-//                File parent = target.getParentFile();
-//                if (!parent.exists()) {
-//                    parent.mkdirs();
-//                }
-//            }
-//
-//            target.createNewFile();
-//
-//            out = new FileOutputStream(target);
-
             int len = 0;
-
-
             long pending = cachePool.getPending();
 
             while (len < pending) {
@@ -72,42 +55,11 @@ public class WriteBuff implements Runnable {
 
             cachePool.setPending(0);
 
-//            String md5 = "";
-//            if (pending > 300*1024*1024){
-//                md5 = MD5.getFileMD5(target);
-//            } else {
-//                md5 = MD5.getMd5ByFile(target);
-//            }
-//            if (Constant.MD5_VALUE.equals(md5)) {
-//                handler.sendEmptyMessage(200);
-//            } else {
-//                Log.e(TAG, "失败，MD5值不一致 MD5 VALUE: " + md5);
-//                Message message = handler.obtainMessage();
-//                message.what = 400;
-//                message.obj = "writeBuff error: Fail, the MD5 value is not consistent with VALUE MD5";
-//                handler.sendMessage(message);
-//            }
-        } catch (FileNotFoundException e) {
-            Message message = handler.obtainMessage();
-            message.what = 400;
-            message.obj = "writeBuff error: FileNotFoundException: " + e.getMessage();
-            handler.sendMessage(message);
         } catch (IOException e) {
             Message message = handler.obtainMessage();
             message.what = 400;
             message.obj = "writeBuff error: IOException: " + e.getMessage();
             handler.sendMessage(message);
-        }finally {
-            try {
-                if (out != null) {
-                    out.close();
-                }
-            } catch (IOException e) {
-                Message message = handler.obtainMessage();
-                message.what = 400;
-                message.obj = "writeBuff error: OutputStream close exception: " + e.getMessage();
-                handler.sendMessage(message);
-            }
         }
     }
 }
